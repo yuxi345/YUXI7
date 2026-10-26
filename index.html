@@ -83,6 +83,18 @@ button{cursor:pointer;touch-action:manipulation}
  <div class="msg" id="msg">选择奖项和倍率，开始游戏！</div>
 </div>
 
+ <div class="panel">
+  <div class="label">🎁 每日签到奖励</div>
+  <div style="font-size:14px;color:#d7c7f7;line-height:1.8">
+    每日签到领取 100 金币<br>
+    连续签到额外奖励 50 金币/天，最多额外 300 金币
+  </div>
+  <button id="checkin" class="spinbtn"
+          style="font-size:18px;margin-top:12px">
+    🎁 领取今日奖励
+  </button>
+  <div id="checkinMsg" class="msg"></div>
+ </div>
 <div class="panel rules">
  <b>中奖规则</b><br>
  出现 0 个或 1 个所选奖项：未中奖<br>
@@ -181,7 +193,79 @@ $("reset").onclick=()=>{
  coins=1000;save();render();
  $("msg").textContent="金币已重置！";
 };
-render();
+// 每日签到：本地保存日期和连续签到天数
+const DAY_MS = 86400000;
+const todayKey = () => {
+  const d = new Date();
+  return d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getDate()).padStart(2, "0");
+};
+
+let checkinData = {};
+try {
+  checkinData = JSON.parse(
+    localStorage.getItem("slotCheckin") || "{}"
+  ) || {};
+} catch (e) {}
+
+function updateCheckinButton() {
+  const btn = document.getElementById("checkin");
+  const msg = document.getElementById("checkinMsg");
+  if (!btn || !msg) return;
+
+  if (checkinData.lastDate === todayKey()) {
+    btn.disabled = true;
+    btn.textContent = "✅ 今日已签到";
+    msg.textContent = "今日奖励已领取，明天再来！";
+  } else {
+    btn.disabled = false;
+    btn.textContent = "🎁 领取今日奖励";
+    msg.textContent = "今日可领取 100 金币及连续签到奖励";
+  }
+}
+
+document.getElementById("checkin").onclick = () => {
+  const today = todayKey();
+
+  if (checkinData.lastDate === today) {
+    updateCheckinButton();
+    return;
+  }
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const y = yesterday.getFullYear() + "-" +
+    String(yesterday.getMonth() + 1).padStart(2, "0") + "-" +
+    String(yesterday.getDate()).padStart(2, "0");
+
+  let streak = checkinData.lastDate === y
+    ? (Number(checkinData.streak) || 0) + 1
+    : 1;
+
+  streak = Math.min(streak, 7);
+
+  const bonus = 100 + Math.min((streak - 1) * 50, 300);
+  coins += bonus;
+
+  checkinData = { lastDate: today, streak: streak };
+  try {
+    localStorage.setItem(
+      "slotCheckin", JSON.stringify(checkinData)
+    );
+  } catch (e) {}
+
+  save();
+  render();
+  updateCheckinButton();
+
+  document.getElementById("checkinMsg").textContent =
+    "签到成功！获得 " + bonus +
+    " 金币，连续签到第 " + streak + " 天！";
+};
+
+updateCheckinButton();
+ render();
 </script>
 </body>
 </html>
